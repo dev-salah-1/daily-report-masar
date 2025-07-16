@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,13 +8,10 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      background: #f7f7f7;
+      background: #f4f4f4;
       color: #333;
     }
-    h1 {
-      color: #000;
-    }
-    input, select, button {
+    input, button, select {
       padding: 10px;
       margin: 5px 0;
       width: 300px;
@@ -30,49 +28,65 @@
       margin-top: 20px;
     }
     .report {
-      background: #fff;
+      background: white;
       padding: 20px;
       border-left: 5px solid #0073e6;
       border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      font-size: 16px;
+      line-height: 1.6;
       white-space: pre-wrap;
-      box-shadow: 0 0 5px rgba(0,0,0,0.05);
+    }
+    h1 {
+      color: #0073e6;
+    }
+    h3 {
+      margin-top: 20px;
+      color: #444;
     }
   </style>
 </head>
 <body>
-  <h1>📋 Masar Daily Report</h1>
+  <h1>🗂️ Masar Daily Report</h1>
 
-  <div id="login">
+  <div id="teamSelect">
     <select id="team">
-      <option disabled selected value="">اختر الفريق</option>
-      <option>Content</option>
-      <option>Graphic</option>
-      <option>Media</option>
-      <option>Account</option>
-      <option>Social</option>
-      <option>SEO</option>
-      <option>UI-Dev</option>
-    </select><br>
-    <input id="employeeName" placeholder="ادخل اسمك" />
-    <button onclick="login()">دخول</button>
+      <option value="">-- Select Your Team --</option>
+      <option value="Content">Content</option>
+      <option value="Graphic">Graphic</option>
+      <option value="Media">Media</option>
+      <option value="Account">Account</option>
+      <option value="Social">Social</option>
+      <option value="SEO">SEO</option>
+      <option value="UI_Programming">UI & Programming</option>
+    </select>
+    <button onclick="continueToLogin()">Continue</button>
+  </div>
+
+  <div id="login" style="display:none;">
+    <input id="employeeName" placeholder="Enter your name" />
+    <button onclick="login()">Login</button>
   </div>
 
   <div id="welcome"></div>
 
   <div id="taskForm" class="task-form" style="display:none">
-    <input id="task" placeholder="📝 المهمة"><br>
+    <input id="task" placeholder="📝 Task Name"><br>
     <input type="datetime-local" id="from"><br>
     <input type="datetime-local" id="to"><br>
-    <input id="link" placeholder="🔗 رابط المهمة"><br>
-    <button onclick="addTask()">إضافة المهمة</button>
+    <input id="link" placeholder="🔗 Task Link"><br>
+    <button onclick="addTask()">Add Task</button>
   </div>
 
-  <div id="buttons" style="display:none">
-    <button onclick="generateReport()">📄 توليد التقرير</button>
-    <button onclick="copyReport()">📋 نسخ التقرير</button>
-  </div>
+  <button onclick="generateReport()" id="leaderButton" style="display:none">
+    📋 Generate Team Report
+  </button>
 
-  <div id="report" class="report" style="display:none"></div>
+  <button onclick="copyReport()" id="copyButton" style="display:none">
+    📋 Copy Report
+  </button>
+
+  <div id="report" class="report"></div>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -83,7 +97,7 @@
       authDomain: "daily-report-masar.firebaseapp.com",
       databaseURL: "https://daily-report-masar-default-rtdb.firebaseio.com",
       projectId: "daily-report-masar",
-      storageBucket: "daily-report-masar.firebasestorage.app",
+      storageBucket: "daily-report-masar.appspot.com",
       messagingSenderId: "927762694488",
       appId: "1:927762694488:web:253b90e998bcc53d77a52d",
       measurementId: "G-JXDFMHP989"
@@ -91,146 +105,27 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-
-    let currentTeam = "";
-    let currentUser = "";
+    const teamTasksRef = db.ref('teams');
 
     const teamLeaders = {
-      "Content": "leader-content",
-      "Graphic": "leader-graphic",
-      "Media": "leader-media",
-      "Account": "leader-account",
-      "Social": "leader-social",
-      "SEO": "leader-seo",
-      "UI-Dev": "leader-ui"
+      "Content": "Ali",
+      "Graphic": "Mohamed",
+      "Media": "Sara",
+      "Account": "Hana",
+      "Social": "Omar",
+      "SEO": "Yasmine",
+      "UI_Programming": "Salah"
     };
 
-    function login() {
-      const team = document.getElementById("team").value;
-      const name = document.getElementById("employeeName").value.trim();
-      if (!team || !name) {
-        alert("يرجى اختيار الفريق وإدخال الاسم");
+    function continueToLogin() {
+      const selectedTeam = document.getElementById('team').value;
+      if (!selectedTeam) {
+        alert("Please select a team");
         return;
       }
-      currentTeam = team;
-      currentUser = name;
-      document.getElementById("login").style.display = "none";
-      document.getElementById("welcome").innerText = `👋 مرحبًا ${name} من فريق ${team}`;
-      document.getElementById("taskForm").style.display = "block";
-
-      if (name.toLowerCase() === "admin" || name === teamLeaders[team]) {
-        document.getElementById("buttons").style.display = "block";
-      } else {
-        showUserReport();
-      }
-
-      setDefaultTimes();
-    }
-
-    function setDefaultTimes() {
-      const now = new Date();
-      const date = now.toISOString().split("T")[0];
-      const time = now.toTimeString().split(" ")[0].slice(0,5);
-      document.getElementById("from").value = `${date}T${time}`;
-      document.getElementById("to").value = `${date}T${time}`;
-    }
-
-    function addTask() {
-      const task = document.getElementById("task").value.trim();
-      const from = document.getElementById("from").value;
-      const to = document.getElementById("to").value;
-      const link = document.getElementById("link").value.trim();
-      if (!task || !from || !to || !link) return alert("يرجى تعبئة كل الحقول");
-
-      const date = new Date(from).toISOString().split("T")[0];
-      const fromTime = new Date(from).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-      const toTime = new Date(to).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-
-      const taskData = { task, from: fromTime, to: toTime, link, date };
-
-      db.ref(`teamTasks/${currentTeam}/${currentUser}`).push(taskData).then(() => {
-        alert("✅ تم إضافة المهمة");
-        document.getElementById("task").value = "";
-        document.getElementById("link").value = "";
-        setDefaultTimes();
-        showUserReport();
-      });
-    }
-
-    function showUserReport() {
-      const today = new Date().toISOString().split("T")[0];
-      db.ref(`teamTasks/${currentTeam}/${currentUser}`).once("value").then(snapshot => {
-        let html = `📌 ${currentUser} (${currentTeam})\n\n`;
-        let found = false;
-        snapshot.forEach(child => {
-          const t = child.val();
-          if (t.date === today) {
-            found = true;
-            html += `🔹 ${t.task} ⏰ ${t.from} → ${t.to} 🔗 ${t.link}\n`;
-          }
-        });
-        document.getElementById("report").innerText = found ? html : "📭 لا توجد مهام اليوم.";
-        document.getElementById("report").style.display = "block";
-      });
-    }
-
-    function generateReport() {
-      const today = new Date().toISOString().split("T")[0];
-      let html = "";
-      if (currentUser === "admin") {
-        db.ref("teamTasks").once("value").then(snapshot => {
-          snapshot.forEach(teamSnap => {
-            const teamName = teamSnap.key;
-            teamSnap.forEach(userSnap => {
-              const userName = userSnap.key;
-              const tasks = [];
-              userSnap.forEach(taskSnap => {
-                const t = taskSnap.val();
-                if (t.date === today) tasks.push(t);
-              });
-              if (tasks.length) {
-                html += `\n📌 ${userName} (${teamName})\n`;
-                tasks.forEach(t => {
-                  html += `🔹 ${t.task} ⏰ ${t.from} → ${t.to} 🔗 ${t.link}\n`;
-                });
-              }
-            });
-          });
-          document.getElementById("report").innerText = html || "📭 لا توجد مهام اليوم.";
-          document.getElementById("report").style.display = "block";
-        });
-      } else {
-        // Team leader report
-        db.ref(`teamTasks/${currentTeam}`).once("value").then(snapshot => {
-          snapshot.forEach(userSnap => {
-            const userName = userSnap.key;
-            const tasks = [];
-            userSnap.forEach(taskSnap => {
-              const t = taskSnap.val();
-              if (t.date === today) tasks.push(t);
-            });
-            if (tasks.length) {
-              html += `\n📌 ${userName} (${currentTeam})\n`;
-              tasks.forEach(t => {
-                html += `🔹 ${t.task} ⏰ ${t.from} → ${t.to} 🔗 ${t.link}\n`;
-              });
-            }
-          });
-          document.getElementById("report").innerText = html || "📭 لا توجد مهام اليوم.";
-          document.getElementById("report").style.display = "block";
-        });
-      }
-    }
-
-    function copyReport() {
-      const txt = document.getElementById("report").innerText;
-      navigator.clipboard.writeText(txt).then(() => alert("✅ تم نسخ التقرير"));
-    }
-
-    // Auto-login (اختياري ممكن تحذفه لو حبيت)
-    if (localStorage.getItem("team") && localStorage.getItem("employee")) {
-      document.getElementById("team").value = localStorage.getItem("team");
-      document.getElementById("employeeName").value = localStorage.getItem("employee");
+      localStorage.setItem('team', selectedTeam);
+      document.getElementById('teamSelect').style.display = 'none';
+      document.getElementById('login').style.display = 'block';
     }
   </script>
 </body>
